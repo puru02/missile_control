@@ -45,39 +45,39 @@ class Missile(object):
 			raise LaunchException("Launch angle equal to 0 is not supported")
 		if self.y0 <0:
 			raise LaunchException("Negative y-coordinate is not supported")
-			
 
+	@pre_launch		
 	def shift_up(self, distance, time):
-		self.up_shifts[time]=distance
+		self.up_shifts[time]=distance 
 	
-	def get_sum_of_applied_upshifts(self):
+	def apply_upshifts_and_get_range(self):
 		up_shift_timestamps = sorted(self.up_shifts.keys())
-		vy = self.v0y
-		up_shift_so_far = 0
-		y_coordinate = self.y0
+		time_elapsed = 0
+		py_coordinate_at_timestamp = y_coordinate = self.y0
 		for timestamp in up_shift_timestamps:
-			y_coordinate = self.y0 + up_shift_so_far
-			y_coordinate += self.v0y * timestamp + 0.5 * -self.g * timestamp**2
-			if y_coordinate<=0:
+			vy = self.v0y - self.g * time_elapsed
+			flight_time = timestamp - time_elapsed
+			y_coordinate_at_timestamp = vy * flight_time + 0.5 * - self.g * flight_time**2 + y_coordinate
+			if y_coordinate_at_timestamp<0:
 				break
-			if y_coordinate + self.up_shifts[timestamp] <=0:
-				break
-			up_shift_so_far+=self.up_shifts[timestamp]
-		return up_shift_so_far 
-
+			time_elapsed = timestamp 
+			y_coordinate = y_coordinate_at_timestamp + self.up_shifts[timestamp]
+		vy = self.v0y - self.g * time_elapsed
+		flight_range = self.v0x * (time_elapsed + (vy + math.sqrt(vy**2 + 2*self.g*y_coordinate))/self.g)
+		return flight_range
+	
 	def get_range(self):
-		total_up_shift=self.get_sum_of_applied_upshifts()
-		# Since all up shifts duing the flight are essentially equal to launching the missile from a height
-		# we add the sum of applied upshifts to the initial y coordinate and treat this value as the launch height
-		h = total_up_shift + self.y0
-		if h:
-			flight_range = self.v0x * (self.v0y + math.sqrt(self.v0y**2 + 2*self.g*h))/self.g
+		if self.y0:
+			flight_range = self.v0x * (self.v0y + math.sqrt(self.v0y**2 + 2*self.g*self.y0))/self.g
 		else:
 			flight_range = 2 * self.v0x * self.v0y / self.g
 		return flight_range
 
 	def get_landing_position(self):
-		flight_range = self.get_range()
+		if self.up_shifts:
+			flight_range = self.apply_upshifts_and_get_range()
+		else:
+			flight_range = self.get_range()
 		return (round(self.x0+flight_range,2),0.0)
 
 
